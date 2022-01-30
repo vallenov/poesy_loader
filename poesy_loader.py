@@ -1,5 +1,4 @@
-import time
-
+import datetime
 import requests
 from bs4 import BeautifulSoup
 import logging
@@ -115,12 +114,13 @@ class PoesyLoader:
         logger.info('End write to file')
 
     def main(self):
+        now = datetime.datetime.now
         logger.info('<===================================================>')
         logger.info('PoesyLoader start')
         logger.info(f'Page count = {self.page_count}')
         for page in range(1, self.page_count + 1):
             logger.info(f'Get {page} page')
-            start = time.time()
+            start = now()
             text = self.get_page(page)
             logger.info(f'Parse {page} page')
             soup = BeautifulSoup(text, 'lxml')
@@ -137,8 +137,8 @@ class PoesyLoader:
                 self.poems_count += 1
                 logger.info(f'Complete {num+1} poem')
             self.to_xls(ready_to_write)
-            finish = time.time() - start
-            logger.info(f'Page {page} done. Time: {finish:.3}')
+            finish = now() - start
+            logger.info(f'Page {page} done. Time: {finish.seconds}.{str(finish.microseconds)[:3]} sec')
             logger.info(f'{self.poems_count} poems have been write into the file')
         logger.info('PoesyLoader finish\n')
 
