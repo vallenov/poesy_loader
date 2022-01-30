@@ -1,4 +1,7 @@
 import datetime
+import time
+import traceback
+
 import requests
 from bs4 import BeautifulSoup
 import logging
@@ -13,6 +16,8 @@ logger.setLevel(logging.INFO)
 handler = logging.FileHandler('run.log')
 handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(handler)
+
+MAX_TRY = 15
 
 
 class PoesyLoader:
@@ -32,7 +37,8 @@ class PoesyLoader:
         link = '/'.join(self.url.split('/')[:-3]) + href
         return link
 
-    def parse_poem(self, raw):
+    @staticmethod
+    def parse_poem(raw):
         resp = {}
         soup = BeautifulSoup(raw, 'lxml')
 
@@ -76,21 +82,44 @@ class PoesyLoader:
             self.async_url_data.append(data)
 
     def get_page(self, page: int):
-        if page > 1:
-            res = requests.get(self.url + f'?page={page}').text
-            logger.info(f'Get url: {self.url}?page={page}')
-        else:
-            res = requests.get(self.url).text
-            logger.info(f'Get url: {self.url}')
-        return res
+        current_try = 0
+        while current_try < MAX_TRY:
+            current_try += 1
+            try:
+                if page > 1:
+                    url = self.url + f'?page={page}'
+                else:
+                    url = self.url
+                res = requests.get(url).text
+            except Exception:
+                logger.exception(f'{traceback.format_exc()}')
+                time.sleep(current_try)
+            else:
+                logger.info(f'Get url: {url}')
+                return res
+        logger.error(f'MAX_TRY exceeded')
 
     @staticmethod
     def get_poem_page(url):
-        return requests.get(url).text
+        current_try = 0
+        while current_try < MAX_TRY:
+            current_try += 1
+            try:
+                text = requests.get(url).text
+            except Exception:
+                logger.exception(f'{traceback.format_exc()}')
+                time.sleep(current_try)
+            else:
+                return text
+        logger.error(f'MAX_TRY exceeded')
 
     def to_xls(self, array: list):
         '''
         Write array to xls
+        :param array: input list of dict [{'author': 'name', 'name': 'name', 'poem': 'text'},
+                                          {'author': 'name', 'name': 'name', 'poem': 'text'},
+                                          ...,
+                                          {'author': 'name', 'name': 'name', 'poem': 'text'}]
         '''
         # Проверка наличия файла и создание/присоединение, в зависимости от результата
         logger.info('Begin write to file')
@@ -133,7 +162,7 @@ class PoesyLoader:
                 link = self.get_poem_link(poem_raw)
                 text = self.get_poem_page(link)
                 logger.info(f'Parse {num+1} poem')
-                ready_to_write.append(self.parse_poem(text))
+                ready_to_write.append(PoesyLoader.parse_poem(text))
                 self.poems_count += 1
                 logger.info(f'Complete {num+1} poem')
             self.to_xls(ready_to_write)
@@ -162,7 +191,7 @@ class PoesyLoader:
                 await asyncio.gather(*tasks)
                 ready_to_write = []
                 for raw in self.async_url_data:
-                    ready_to_write.append(self.parse_poem(raw))
+                    ready_to_write.append(PoesyLoader.parse_poem(raw))
                 self.to_xls(ready_to_write)
         logger.info('PoesyLoader finish\n')
 
