@@ -65,7 +65,8 @@ class PoesyLoader:
         return resp
 
     def get_page_count(self) -> int:
-        soup = BeautifulSoup(requests.get(self.url).text, 'lxml')
+        headers = {'Connection': 'close'}
+        soup = BeautifulSoup(requests.get(self.url, headers=headers).text, 'lxml')
         logger.info(f'Get url: {self.url}')
         div_raw = soup.find('div', class_='_2uPBE')
         a_raw = div_raw.find_all('a', class_='GmJ5E')
@@ -83,6 +84,7 @@ class PoesyLoader:
 
     def get_page(self, page: int):
         current_try = 0
+        headers = {'Connection':'close'}
         while current_try < MAX_TRY:
             current_try += 1
             try:
@@ -90,7 +92,7 @@ class PoesyLoader:
                     url = self.url + f'?page={page}'
                 else:
                     url = self.url
-                res = requests.get(url).text
+                res = requests.get(url, headers=headers).text
             except Exception:
                 logger.exception(f'{traceback.format_exc()}')
                 time.sleep(current_try)
@@ -102,10 +104,11 @@ class PoesyLoader:
     @staticmethod
     def get_poem_page(url):
         current_try = 0
+        headers = {'Connection': 'close'}
         while current_try < MAX_TRY:
             current_try += 1
             try:
-                text = requests.get(url).text
+                text = requests.get(url, headers=headers).text
             except Exception:
                 logger.exception(f'{traceback.format_exc()}')
                 time.sleep(current_try)
